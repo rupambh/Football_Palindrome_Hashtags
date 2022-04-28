@@ -3,10 +3,10 @@ title: "Finding Palindromes in Three-letter Soccer Game Hashtags"
 author: "Rupam Bhattacharyya"
 date: "`r Sys.Date()`"
 output:
+  pdf_document: default
   prettydoc::html_pretty:
     theme: architect
     highlight: github
-  pdf_document: default
 urlcolor: blue
 ---
 
