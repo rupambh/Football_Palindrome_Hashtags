@@ -1,0 +1,94 @@
+---
+title: "Finding Palindromes in Three-letter Soccer Game Hashtags"
+author: "Rupam Bhattacharyya"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+  pdf_document: default
+urlcolor: blue
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Context
+
+The date on which this work was conceived saw the teams of Liverpool and Villarreal face each other in Anfield during the first leg of the season's first semifinal of the Uefa Champions League. Having noted that the game was advertised and discussed on twitter with the hashtag "#LIVVIL", the interest was in finding out other possible games in club football across the world will have the same feature - that of the corresponding hashtag being a palindrome.
+
+## Data Source and Processing
+
+Our data comes from a [Sporcle quiz page](https://www.sporcle.com/games/easterbunny/football-club--by-abbreviations-/results) asking readers to identify clubs from their abbreviations.^[Many thanks to Tuhin Majumder for suggesting the source.] The data was processed into a csv file using an [online tool](https://onlinecsvtools.com/convert-text-to-csv) and Microsoft Excel. We will begin with taking a look at the first few rows of the data.
+
+```{r, message = FALSE, echo = FALSE}
+library(readr)
+library(stringi)
+library(knitr)
+
+Data <- read_csv("Data.csv", na = "empty")
+
+Data$Name = ifelse(Data$Name_Last == "",
+                   Data$Name_First,
+                   paste0(Data$Name_First,
+                          " ",
+                          Data$Name_Last))
+kable(Data[1:4, c(1, 4)])
+```
+
+Overall, this data contains information on a total of `r nrow(Data)` clubs. We first make sure that there isn't any repeated triplet that is a palindrome of itself. This would be problematic because if two different clubs both had the same palindrome abbreviation (say ABA), then it would be challenging to know whether it is a repeat due to the diagonals of the pairing matrix or an actual palindrome pairing.
+
+```{r}
+sum(names(table(Data$Abbreviation)[table(Data$Abbreviation) >= 2]) ==
+      stri_reverse(names(table(Data$Abbreviation)[table(Data$Abbreviation) >= 2])))
+```
+
+Once we have made sure of this, we can go on to the next phase of our calculations.
+
+## Finding Palindrome Hashtags
+
+We begin with looking at all possible pairings of the clubs included in the dataset. Note that we use a naive approach of constructing all possible combinations followed by a search - this is efficient enough for the size of data we are currently handling. More optimized approaches will perhaps be required for larger databases.
+
+```{r}
+Data.Pairs = data.frame(expand.grid(Data$Abbreviation, Data$Abbreviation))
+Data.Pairs$Pal_Check = 1 * (Data.Pairs$Var1 == stri_reverse(Data.Pairs$Var2))
+
+Data.Pairs.Final = Data.Pairs[Data.Pairs$Pal_Check == 1, ]
+Data.Pairs.Final = Data.Pairs.Final[Data.Pairs.Final$Var1 != Data.Pairs.Final$Var2,]
+Data.Pairs.Final = Data.Pairs.Final[!duplicated(Data.Pairs.Final),]
+```
+
+Now we will remove the repetitions due to the symmetry of the pairing matrix, and finally arrive at our list of pairings.
+
+```{r}
+Data.Pairs.Final = Data.Pairs.Final[1:(nrow(Data.Pairs.Final) / 2), -3]
+Data.Pairs.Print = data.frame(Var1 = character(),
+                              Var2 = character())
+for(i in 1:nrow(Data.Pairs.Final))
+{
+  First.Temp = Data$Name[Data$Abbreviation == Data.Pairs.Final$Var1[i]]
+  Second.Temp = Data$Name[Data$Abbreviation == Data.Pairs.Final$Var2[i]]
+  
+  Data.Pairs.Print = rbind(Data.Pairs.Print, expand.grid(First.Temp, Second.Temp))
+}
+
+Data.Pairs.Print$Hashtag = rep("", nrow(Data.Pairs.Print))
+
+for(i in 1:nrow(Data.Pairs.Print))
+{
+  Data.Pairs.Print$Hashtag[i] = paste0(Data$Abbreviation[which(Data$Name == Data.Pairs.Print$Var1[i])], Data$Abbreviation[which(Data$Name == Data.Pairs.Print$Var2[i])])
+}
+colnames(Data.Pairs.Print)[1:2] = c("Team One", "Team Two")
+
+kable(Data.Pairs.Print)
+```
+
+## Conclusion
+
+As can be seen, among all possible pairings of the clubs in the data available, there were five possible palindrome pairings (and three unique palindrome hashtags). As long as the data is in the same format, this code can be reused with a larger dataset to find more possible pairings. It is perhaps worth noting that other than the one that inspired us to perform this search, chances of such matchups in international club football are rather slim. The advent of the UEFA Conference League probably makes the MORROM matchup somewhat likely!
